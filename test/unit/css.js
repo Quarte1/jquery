@@ -203,12 +203,73 @@ test( "css() explicit and relative values", 29, function() {
 	equal( $elem.css("opacity"), "1", "'+=0.5' on opacity (params)" );
 });
 
-test("css(String, Object)", function() {
-	expect( 20 );
-	var j, div, display, ret, success;
+test( "css() non-px relative values (gh-1711)", 17, function() {
+	var cssCurrent,
+		units = {},
+		$child = jQuery( "#nothiddendivchild" ),
+		add = function( prop, val, unit ) {
+			var difference,
+				adjustment = ( val < 0 ? "-=" : "+=" ) + Math.abs( val ) + unit,
+				message = prop + ": " + adjustment,
+				cssOld = cssCurrent,
+				expected = cssOld + val * units[ prop ][ unit ];
 
-	jQuery("#nothiddendiv").css("top", "-1em");
-	ok( jQuery("#nothiddendiv").css("top"), -16, "Check negative number in EMs." );
+			// Apply change
+			$child.css( prop, adjustment );
+			cssCurrent = parseFloat( $child.css( prop ) );
+
+			// Require a difference of no more than one pixel
+			difference = Math.abs( cssCurrent - expected );
+			if ( difference <= 1 ) {
+				ok( true, message );
+
+			// ...or fail with actual and expected values
+			} else {
+				ok( false, message + " (actual " + cssCurrent + ", expected " + expected + ")" );
+			}
+		},
+		getUnits = function( prop ) {
+			units[ prop ] = {
+				"px": 1,
+				"em": parseFloat( $child.css( prop, "100em" ).css( prop ) ) / 100,
+				"pt": parseFloat( $child.css( prop, "100pt" ).css( prop ) ) / 100,
+				"pc": parseFloat( $child.css( prop, "100pc" ).css( prop ) ) / 100,
+				"cm": parseFloat( $child.css( prop, "100cm" ).css( prop ) ) / 100,
+				"mm": parseFloat( $child.css( prop, "100mm" ).css( prop ) ) / 100,
+				"%" : parseFloat( $child.css( prop, "100%"  ).css( prop ) ) / 100
+			};
+		};
+
+	jQuery( "#nothiddendiv" ).css({ height: 1, padding: 0, width: 400 });
+	$child.css({ height: 1, padding: 0 });
+
+	getUnits( "width" );
+	cssCurrent = parseFloat( $child.css( "width", "50%" ).css( "width" ) );
+	add( "width",  25,    "%" );
+	add( "width", -50,    "%" );
+	add( "width",  10,   "em" );
+	add( "width",  10,   "pt" );
+	add( "width",  -2.3, "pt" );
+	add( "width",   5,   "pc" );
+	add( "width",  -5,   "em" );
+	add( "width",  +2,   "cm" );
+	add( "width", -15,   "mm" );
+	add( "width",  21,   "px" );
+
+	getUnits( "lineHeight" );
+	cssCurrent = parseFloat( $child.css( "lineHeight", "1em" ).css( "lineHeight" ) );
+	add( "lineHeight",   2, "em" );
+	add( "lineHeight", -10, "px" );
+	add( "lineHeight",  20, "pt" );
+	add( "lineHeight",  30, "pc" );
+	add( "lineHeight",   1, "cm" );
+	add( "lineHeight", -20, "mm" );
+	add( "lineHeight",  50,  "%" );
+});
+
+test("css(String, Object)", function() {
+	expect( 19 );
+	var j, div, display, ret, success;
 
 	jQuery("#floatTest").css("float", "left");
 	equal( jQuery("#floatTest").css("float"), "left", "Modified CSS float using \"float\": Assert float is left");
@@ -228,8 +289,6 @@ test("css(String, Object)", function() {
 	j = jQuery("#nonnodes").contents();
 	j.css("overflow", "visible");
 	equal( j.css("overflow"), "visible", "Check node,textnode,comment css works" );
-	// opera sometimes doesn't update 'display' correctly, see #2037
-	jQuery("#t2037")[0].innerHTML = jQuery("#t2037")[0].innerHTML;
 	equal( jQuery("#t2037 .hidden").css("display"), "none", "Make sure browser thinks it is hidden" );
 
 	div = jQuery("#nothiddendiv");
@@ -251,6 +310,21 @@ test("css(String, Object)", function() {
 	jQuery( "#foo" ).css( "font", "7px/21px sans-serif" );
 	strictEqual( jQuery( "#foo" ).css( "line-height" ), "21px",
 		"Set font shorthand property (#14759)" );
+});
+
+test( "css(String, Object) with negative values", function() {
+	expect( 4 );
+
+	jQuery( "#nothiddendiv" ).css( "margin-top", "-10px" );
+	jQuery( "#nothiddendiv" ).css( "margin-left", "-10px" );
+	equal( jQuery( "#nothiddendiv" ).css( "margin-top" ), "-10px", "Ensure negative top margins work." );
+	equal( jQuery( "#nothiddendiv" ).css( "margin-left" ), "-10px", "Ensure negative left margins work." );
+
+	jQuery( "#nothiddendiv" ).css( "position", "absolute" );
+	jQuery( "#nothiddendiv" ).css( "top", "-20px" );
+	jQuery( "#nothiddendiv" ).css( "left", "-20px" );
+	equal( jQuery( "#nothiddendiv" ).css( "top" ), "-20px", "Ensure negative top values work." );
+	equal( jQuery( "#nothiddendiv" ).css( "left" ), "-20px", "Ensure negative left values work." );
 });
 
 test( "css(Array)", function() {
@@ -790,8 +864,8 @@ test("Do not append px (#9548, #12990)", function() {
 test("css('width') and css('height') should respect box-sizing, see #11004", function() {
 	expect( 4 );
 
-	// Support: Firefox<29, Android 2.3 (Prefixed box-sizing versions).
-	var el_dis = jQuery("<div style='width:300px;height:300px;margin:2px;padding:2px;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box;'>test</div>"),
+	// Support: Android 2.3 (-webkit-box-sizing).
+	var el_dis = jQuery("<div style='width:300px;height:300px;margin:2px;padding:2px;-webkit-box-sizing:border-box;box-sizing:border-box;'>test</div>"),
 		el = el_dis.clone().appendTo("#qunit-fixture");
 
 	equal( el.css("width"), el.css("width", el.css("width")).css("width"), "css('width') is not respecting box-sizing, see #11004");

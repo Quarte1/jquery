@@ -3,22 +3,24 @@ define([
 	"./var/pnum",
 	"./core/access",
 	"./css/var/rmargin",
+	"./var/rcssNum",
 	"./css/var/rnumnonpx",
 	"./css/var/cssExpand",
 	"./css/var/isHidden",
 	"./css/var/getStyles",
+	"./css/var/swap",
 	"./css/curCSS",
+	"./css/adjustCSS",
 	"./css/defaultDisplay",
 	"./css/addGetHookIf",
 	"./css/support",
 	"./data/var/dataPriv",
 
 	"./core/init",
-	"./css/swap",
 	"./core/ready",
 	"./selector" // contains
-], function( jQuery, pnum, access, rmargin, rnumnonpx, cssExpand, isHidden,
-	getStyles, curCSS, defaultDisplay, addGetHookIf, support, dataPriv ) {
+], function( jQuery, pnum, access, rmargin, rcssNum, rnumnonpx, cssExpand, isHidden,
+	getStyles, swap, curCSS, adjustCSS, defaultDisplay, addGetHookIf, support, dataPriv ) {
 
 var
 	// Swappable if display is none or starts with table
@@ -26,7 +28,6 @@ var
 	// See here for display values: https://developer.mozilla.org/en-US/docs/CSS/display
 	rdisplayswap = /^(none|table(?!-c[ea]).+)/,
 	rnumsplit = new RegExp( "^(" + pnum + ")(.*)$", "i" ),
-	rrelNum = new RegExp( "^([+-])=(" + pnum + ")", "i" ),
 
 	cssShow = { position: "absolute", visibility: "hidden", display: "block" },
 	cssNormalTransform = {
@@ -34,7 +35,7 @@ var
 		fontWeight: "400"
 	},
 
-	cssPrefixes = [ "Webkit", "O", "Moz", "ms" ];
+	cssPrefixes = [ "Webkit", "Moz", "ms" ];
 
 // Return a css property mapped to a potentially vendor prefixed property
 function vendorPropName( style, name ) {
@@ -272,8 +273,8 @@ jQuery.extend({
 			type = typeof value;
 
 			// Convert "+=" or "-=" to relative numbers (#7345)
-			if ( type === "string" && (ret = rrelNum.exec( value )) ) {
-				value = ( ret[1] + 1 ) * ret[2] + parseFloat( jQuery.css( elem, name ) );
+			if ( type === "string" && (ret = rcssNum.exec( value )) && ret[ 1 ] ) {
+				value = adjustCSS( elem, name, ret );
 				// Fixes bug #9237
 				type = "number";
 			}
@@ -283,9 +284,9 @@ jQuery.extend({
 				return;
 			}
 
-			// If a number, add 'px' to the (except for certain CSS properties)
-			if ( type === "number" && !jQuery.cssNumber[ origName ] ) {
-				value += "px";
+			// If a number was passed in, add the unit (except for certain CSS properties)
+			if ( type === "number" ) {
+				value += ret && ret[ 3 ] || ( jQuery.cssNumber[ origName ] ? "" : "px" );
 			}
 
 			// Support: IE9-11+
@@ -358,7 +359,7 @@ jQuery.each([ "height", "width" ], function( i, name ) {
 				// but it must have a current display style that would benefit
 				return rdisplayswap.test( jQuery.css( elem, "display" ) ) &&
 					elem.offsetWidth === 0 ?
-						jQuery.swap( elem, cssShow, function() {
+						swap( elem, cssShow, function() {
 							return getWidthOrHeight( elem, name, extra );
 						}) :
 						getWidthOrHeight( elem, name, extra );
@@ -384,7 +385,7 @@ jQuery.each([ "height", "width" ], function( i, name ) {
 jQuery.cssHooks.marginRight = addGetHookIf( support.reliableMarginRight,
 	function( elem, computed ) {
 		if ( computed ) {
-			return jQuery.swap( elem, { "display": "inline-block" },
+			return swap( elem, { "display": "inline-block" },
 				curCSS, [ elem, "marginRight" ] );
 		}
 	}

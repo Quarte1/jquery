@@ -134,7 +134,7 @@ test("jQuery.data(div)", 25, function() {
 	// We stored one key in the private data
 	// assert that nothing else was put in there, and that that
 	// one stayed there.
-	QUnit.expectJqData( div, "foo" );
+	QUnit.expectJqData( this, div, "foo" );
 });
 
 test("jQuery.data({})", 25, function() {
@@ -144,7 +144,7 @@ test("jQuery.data({})", 25, function() {
 test("jQuery.data(window)", 25, function() {
 	// remove bound handlers from window object to stop potential false positives caused by fix for #5280 in
 	// transports/xhr.js
-	jQuery( window ).off( "unload" );
+	jQuery( window ).off( "unload" );
 
 	dataTests( window );
 });
@@ -152,15 +152,11 @@ test("jQuery.data(window)", 25, function() {
 test("jQuery.data(document)", 25, function() {
 	dataTests( document );
 
-	QUnit.expectJqData( document, "foo" );
+	QUnit.expectJqData( this, document, "foo" );
 });
 
 test("jQuery.data(<embed>)", 25, function() {
 	dataTests( document.createElement("embed") );
-});
-
-test("jQuery.data(<applet>)", 25, function() {
-	dataTests( document.createElement("applet") );
 });
 
 test("jQuery.data(object/flash)", 25, function() {
@@ -766,22 +762,23 @@ test(".data doesn't throw when calling selection is empty. #13551", function() {
 	}
 });
 
-test("jQuery.acceptData", 11, function() {
-	var flash, applet;
+test("jQuery.acceptData", function() {
+	expect( 10 );
+
+	var flash, pdf;
 
 	ok( jQuery.acceptData( document ), "document" );
 	ok( jQuery.acceptData( document.documentElement ), "documentElement" );
 	ok( jQuery.acceptData( {} ), "object" );
 	ok( jQuery.acceptData( document.createElement( "embed" ) ), "embed" );
-	ok( jQuery.acceptData( document.createElement( "applet" ) ), "applet" );
 
 	flash = document.createElement( "object" );
 	flash.setAttribute( "classid", "clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" );
 	ok( jQuery.acceptData( flash ), "flash" );
 
-	applet = document.createElement( "object" );
-	applet.setAttribute( "classid", "clsid:8AD9C840-044E-11D1-B3E9-00805F499D93" );
-	ok( jQuery.acceptData( applet ), "applet" );
+	pdf = document.createElement( "object" );
+	pdf.setAttribute( "classid", "clsid:CA8A9780-280D-11CF-A24D-444553540000" );
+	ok( jQuery.acceptData( pdf ), "pdf" );
 
 	ok( !jQuery.acceptData( document.createComment( "" ) ), "comment" );
 	ok( !jQuery.acceptData( document.createTextNode( "" ) ), "text" );

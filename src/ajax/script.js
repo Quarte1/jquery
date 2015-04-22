@@ -1,7 +1,8 @@
 define([
 	"../core",
+	"../var/document",
 	"../ajax"
-], function( jQuery ) {
+], function( jQuery, document ) {
 
 // Install script dataType
 jQuery.ajaxSetup({
@@ -38,7 +39,6 @@ jQuery.ajaxTransport( "script", function( s ) {
 		return {
 			send: function( _, complete ) {
 				script = jQuery("<script>").prop({
-					async: true,
 					charset: s.scriptCharset,
 					src: s.url
 				}).on(

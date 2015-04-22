@@ -16,8 +16,8 @@ define([
 ], function( jQuery, concat, push, access, rcheckableType, support, dataPriv, dataUser ) {
 
 var
-	rxhtmlTag = /<(?!area|br|col|embed|hr|img|input|link|meta|param)(([\w:]+)[^>]*)\/>/gi,
-	rtagName = /<([\w:]+)/,
+	rxhtmlTag = /<(?!area|br|col|embed|hr|img|input|link|meta|param)(([\w:-]+)[^>]*)\/>/gi,
+	rtagName = /<([\w:-]+)/,
 	rhtml = /<|&#?\w+;/,
 	rnoInnerhtml = /<(?:script|style|link)/i,
 	// checked="checked" or checked
@@ -33,9 +33,20 @@ var
 		option: [ 1, "<select multiple='multiple'>", "</select>" ],
 
 		thead: [ 1, "<table>", "</table>" ],
+
+		// Some of the following wrappers are not fully defined, because
+		// their parent elements (except for "table" element) could be omitted
+		// since browser parsers are smart enough to auto-insert them
+
+		// Support: Android 2.3
+		// Android browser doesn't auto-insert colgroup
 		col: [ 2, "<table><colgroup>", "</colgroup></table>" ],
-		tr: [ 2, "<table><tbody>", "</tbody></table>" ],
-		td: [ 3, "<table><tbody><tr>", "</tr></tbody></table>" ],
+
+		// Auto-insert "tbody" element
+		tr: [ 2, "<table>", "</table>" ],
+
+		// Auto-insert "tbody" and "tr" elements
+		td: [ 3, "<table>", "</table>" ],
 
 		_default: [ 0, "", "" ]
 	};
@@ -46,15 +57,14 @@ wrapMap.optgroup = wrapMap.option;
 wrapMap.tbody = wrapMap.tfoot = wrapMap.colgroup = wrapMap.caption = wrapMap.thead;
 wrapMap.th = wrapMap.td;
 
-// Support: 1.x compatibility
-// Manipulating tables requires a tbody
 function manipulationTarget( elem, content ) {
-	return jQuery.nodeName( elem, "table" ) &&
-		jQuery.nodeName( content.nodeType !== 11 ? content : content.firstChild, "tr" ) ?
+	if ( jQuery.nodeName( elem, "table" ) &&
+		jQuery.nodeName( content.nodeType !== 11 ? content : content.firstChild, "tr" ) ) {
 
-		elem.getElementsByTagName("tbody")[0] ||
-			elem.appendChild( elem.ownerDocument.createElement("tbody") ) :
-		elem;
+		return elem.getElementsByTagName( "tbody" )[ 0 ] || elem;
+	}
+
+	return elem;
 }
 
 // Replace/restore the type attribute of script elements for safe DOM manipulation
@@ -121,8 +131,12 @@ function cloneCopyEvent( src, dest ) {
 }
 
 function getAll( context, tag ) {
-	var ret = context.getElementsByTagName ? context.getElementsByTagName( tag || "*" ) :
-			context.querySelectorAll ? context.querySelectorAll( tag || "*" ) :
+	// Support: IE9-11+
+	// Use typeof to avoid zero-argument method invocation on host objects (#15151)
+	var ret = typeof context.getElementsByTagName !== "undefined" ?
+			context.getElementsByTagName( tag || "*" ) :
+			typeof context.querySelectorAll !== "undefined" ?
+				context.querySelectorAll( tag || "*" ) :
 			[];
 
 	return tag === undefined || tag && jQuery.nodeName( context, tag ) ?
@@ -201,7 +215,7 @@ jQuery.extend({
 
 				// Add nodes directly
 				if ( jQuery.type( elem ) === "object" ) {
-					// Support: QtWebKit, PhantomJS
+					// Support: Android<4.1, PhantomJS<2
 					// push.apply(_, arraylike) throws on ancient WebKit
 					jQuery.merge( nodes, elem.nodeType ? [ elem ] : elem );
 
@@ -224,7 +238,7 @@ jQuery.extend({
 						tmp = tmp.lastChild;
 					}
 
-					// Support: QtWebKit, PhantomJS
+					// Support: Android<4.1, PhantomJS<2
 					// push.apply(_, arraylike) throws on ancient WebKit
 					jQuery.merge( nodes, tmp.childNodes );
 
@@ -245,7 +259,7 @@ jQuery.extend({
 
 			// #4087 - If origin and destination elements are the same, and this is
 			// that element, do not do anything
-			if ( selection && jQuery.inArray( elem, selection ) !== -1 ) {
+			if ( selection && jQuery.inArray( elem, selection ) > -1 ) {
 				continue;
 			}
 
@@ -274,34 +288,25 @@ jQuery.extend({
 	},
 
 	cleanData: function( elems ) {
-		var data, elem, type, key,
+		var data, elem, type,
 			special = jQuery.event.special,
 			i = 0;
 
 		for ( ; (elem = elems[ i ]) !== undefined; i++ ) {
-			if ( jQuery.acceptData( elem ) ) {
-				key = elem[ dataPriv.expando ];
+			if ( jQuery.acceptData( elem ) && (data = elem[ dataPriv.expando ])) {
+				if ( data.events ) {
+					for ( type in data.events ) {
+						if ( special[ type ] ) {
+							jQuery.event.remove( elem, type );
 
-				if ( key && (data = dataPriv.cache[ key ]) ) {
-					if ( data.events ) {
-						for ( type in data.events ) {
-							if ( special[ type ] ) {
-								jQuery.event.remove( elem, type );
-
-							// This is a shortcut to avoid jQuery.event.remove's overhead
-							} else {
-								jQuery.removeEvent( elem, type, data.handle );
-							}
+						// This is a shortcut to avoid jQuery.event.remove's overhead
+						} else {
+							jQuery.removeEvent( elem, type, data.handle );
 						}
 					}
-					if ( dataPriv.cache[ key ] ) {
-						// Discard any remaining `private` data
-						delete dataPriv.cache[ key ];
-					}
 				}
+				delete elem[ dataPriv.expando ];
 			}
-			// Discard any remaining `user` data
-			delete dataUser.cache[ elem[ dataUser.expando ] ];
 		}
 	}
 });
@@ -511,8 +516,8 @@ jQuery.fn.extend({
 
 						// Keep references to cloned scripts for later restoration
 						if ( hasScripts ) {
-							// Support: QtWebKit
-							// jQuery.merge because push.apply(_, arraylike) throws
+							// Support: Android<4.1, PhantomJS<2
+							// push.apply(_, arraylike) throws on ancient WebKit
 							jQuery.merge( scripts, getAll( node, "script" ) );
 						}
 					}
@@ -569,8 +574,8 @@ jQuery.each({
 			elems = i === last ? this : this.clone( true );
 			jQuery( insert[ i ] )[ original ]( elems );
 
-			// Support: QtWebKit
-			// .get() because push.apply(_, arraylike) throws
+			// Support: Android<4.1, PhantomJS<2
+			// .get() because push.apply(_, arraylike) throws on ancient WebKit
 			push.apply( ret, elems.get() );
 		}
 

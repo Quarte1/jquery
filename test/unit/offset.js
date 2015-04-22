@@ -462,9 +462,9 @@ testIframe("offset/body", "body", function( $ ) {
 test("chaining", function() {
 	expect(3);
 	var coords = { "top":  1, "left":  1 };
-	equal( jQuery("#absolute-1").offset(coords).selector, "#absolute-1", "offset(coords) returns jQuery object" );
-	equal( jQuery("#non-existent").offset(coords).selector, "#non-existent", "offset(coords) with empty jQuery set returns jQuery object" );
-	equal( jQuery("#absolute-1").offset(undefined).selector, "#absolute-1", "offset(undefined) returns jQuery object (#5571)" );
+	equal( jQuery("#absolute-1").offset(coords).jquery, jQuery.fn.jquery, "offset(coords) returns jQuery object" );
+	equal( jQuery("#non-existent").offset(coords).jquery, jQuery.fn.jquery, "offset(coords) with empty jQuery set returns jQuery object" );
+	equal( jQuery("#absolute-1").offset(undefined).jquery, jQuery.fn.jquery, "offset(undefined) returns jQuery object (#5571)" );
 });
 
 test("offsetParent", function(){
@@ -529,6 +529,33 @@ test("fractions (see #7730 and #7885)", function() {
 	equal( result.left, expected.left, "Check left" );
 
 	div.remove();
+});
+
+test("iframe scrollTop/Left (see gh-1945)", function() {
+	expect( 2 );
+
+	var ifDoc = jQuery( "#iframe" )[ 0 ].contentDocument;
+
+	// Mobile Safari and Android 2.3 resize the iframe by its content
+	// meaning it's not possible to scroll the iframe only its parent element.
+	// It seems (not confirmed) in android 4.0 it's not possible to scroll iframes from the code.
+	if ( /iphone os/i.test( navigator.userAgent ) ||
+	    /android 2\.3/i.test( navigator.userAgent ) ||
+	    /android 4\.0/i.test( navigator.userAgent ) ) {
+		equal( true, true, "Can't scroll iframes in this environment" );
+		equal( true, true, "Can't scroll iframes in this environment" );
+
+	} else {
+		// Tests scrollTop/Left with iframes
+		jQuery( "#iframe" ).css( "width", "50px" ).css( "height", "50px" );
+		ifDoc.write( "<div style='width: 1000px; height: 1000px;'></div>" );
+
+		jQuery( ifDoc ).scrollTop( 200 );
+		jQuery( ifDoc ).scrollLeft( 500 );
+
+		equal( jQuery( ifDoc ).scrollTop(), 200, "$($('#iframe')[0].contentDocument).scrollTop()" );
+		equal( jQuery( ifDoc ).scrollLeft(), 500, "$($('#iframe')[0].contentDocument).scrollLeft()" );
+	}
 });
 
 })();

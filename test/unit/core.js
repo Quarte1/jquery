@@ -57,9 +57,14 @@ test("jQuery()", function() {
 	equal( jQuery(undefined).length, 0, "jQuery(undefined) === jQuery([])" );
 	equal( jQuery(null).length, 0, "jQuery(null) === jQuery([])" );
 	equal( jQuery("").length, 0, "jQuery('') === jQuery([])" );
-	equal( jQuery("#").length, 0, "jQuery('#') === jQuery([])" );
+	deepEqual( jQuery(obj).get(), obj.get(), "jQuery(jQueryObj) == jQueryObj" );
 
-	equal( jQuery(obj).selector, "div", "jQuery(jQueryObj) == jQueryObj" );
+	// Invalid #id goes to Sizzle which will throw an error (gh-1682)
+	try {
+		jQuery( "#" );
+	} catch ( e ) {
+		ok( true, "Threw an error on #id with no id" );
+	}
 
 	// can actually yield more than one, when iframes are included, the window is an array as well
 	equal( jQuery(window).length, 1, "Correct number of elements generated for jQuery(window)" );
@@ -151,49 +156,6 @@ test("jQuery(selector, context)", function() {
 	deepEqual( jQuery("div p", jQuery("#qunit-fixture")).get(), q("sndp", "en", "sap"), "Basic selector with jQuery object as context" );
 });
 
-test( "selector state", function() {
-	expect( 18 );
-
-	var test;
-
-	test = jQuery( undefined );
-	equal( test.selector, "", "Empty jQuery Selector" );
-	equal( test.context, undefined, "Empty jQuery Context" );
-
-	test = jQuery( document );
-	equal( test.selector, "", "Document Selector" );
-	equal( test.context, document, "Document Context" );
-
-	test = jQuery( document.body );
-	equal( test.selector, "", "Body Selector" );
-	equal( test.context, document.body, "Body Context" );
-
-	test = jQuery("#qunit-fixture");
-	equal( test.selector, "#qunit-fixture", "#qunit-fixture Selector" );
-	equal( test.context, document, "#qunit-fixture Context" );
-
-	test = jQuery("#notfoundnono");
-	equal( test.selector, "#notfoundnono", "#notfoundnono Selector" );
-	equal( test.context, document, "#notfoundnono Context" );
-
-	test = jQuery( "#qunit-fixture", document );
-	equal( test.selector, "#qunit-fixture", "#qunit-fixture Selector" );
-	equal( test.context, document, "#qunit-fixture Context" );
-
-	test = jQuery( "#qunit-fixture", document.body );
-	equal( test.selector, "#qunit-fixture", "#qunit-fixture Selector" );
-	equal( test.context, document.body, "#qunit-fixture Context" );
-
-	// Test cloning
-	test = jQuery( test );
-	equal( test.selector, "#qunit-fixture", "#qunit-fixture Selector" );
-	equal( test.context, document.body, "#qunit-fixture Context" );
-
-	test = jQuery( document.body ).find("#qunit-fixture");
-	equal( test.selector, "#qunit-fixture", "#qunit-fixture find Selector" );
-	equal( test.context, document.body, "#qunit-fixture find Context" );
-});
-
 test( "globalEval", function() {
 	expect( 3 );
 	Globals.register("globalEvalTest");
@@ -229,24 +191,27 @@ test( "globalEval execution after script injection (#7862)", 1, function() {
 	ok( window.strictEvalTest - now < 500, "Code executed synchronously" );
 });
 
-test("noConflict", function() {
-	expect(7);
+// This is not run in AMD mode
+if ( jQuery.noConflict ) {
+	test("noConflict", function() {
+		expect(7);
 
-	var $$ = jQuery;
+		var $$ = jQuery;
 
-	strictEqual( jQuery, jQuery.noConflict(), "noConflict returned the jQuery object" );
-	strictEqual( window["jQuery"], $$, "Make sure jQuery wasn't touched." );
-	strictEqual( window["$"], original$, "Make sure $ was reverted." );
+		strictEqual( jQuery, jQuery.noConflict(), "noConflict returned the jQuery object" );
+		strictEqual( window["jQuery"], $$, "Make sure jQuery wasn't touched." );
+		strictEqual( window["$"], original$, "Make sure $ was reverted." );
 
-	jQuery = $ = $$;
+		jQuery = $ = $$;
 
-	strictEqual( jQuery.noConflict(true), $$, "noConflict returned the jQuery object" );
-	strictEqual( window["jQuery"], originaljQuery, "Make sure jQuery was reverted." );
-	strictEqual( window["$"], original$, "Make sure $ was reverted." );
-	ok( $$().pushStack([]), "Make sure that jQuery still works." );
+		strictEqual( jQuery.noConflict(true), $$, "noConflict returned the jQuery object" );
+		strictEqual( window["jQuery"], originaljQuery, "Make sure jQuery was reverted." );
+		strictEqual( window["$"], original$, "Make sure $ was reverted." );
+		ok( $$().pushStack([]), "Make sure that jQuery still works." );
 
-	window["jQuery"] = jQuery = $$;
-});
+		window["jQuery"] = jQuery = $$;
+	});
+}
 
 test("trim", function() {
 	expect(13);
@@ -627,6 +592,19 @@ test("jQuery('html')", function() {
 	equal( jQuery( "element:not(<div></div>)" ).length, 0,
 		"When html is within parens, do not recognize as html." );
 	equal( jQuery( "\\<div\\>" ).length, 0, "Ignore escaped html characters" );
+});
+
+test("jQuery(tag-hyphenated elements) gh-1987", function() {
+	expect( 17 );
+
+	jQuery.each( "thead tbody tfoot colgroup caption tr th td".split(" "), function( i, name ) {
+		var j = jQuery("<" + name + "-d></" + name + "-d>");
+		ok( j[0], "Create a tag-hyphenated elements" );
+		ok( jQuery.nodeName(j[0], name.toUpperCase() + "-D"), "Tag-hyphenated element has expected node name" );
+	});
+
+	var j = jQuery("<tr-multiple-hyphens></tr-multiple-hyphens>");
+	ok( jQuery.nodeName(j[0], "TR-MULTIPLE-HYPHENS"), "Element with multiple hyphens in its tag has expected node name" );
 });
 
 test("jQuery('massive html #7990')", function() {
@@ -1221,7 +1199,7 @@ test("jQuery.each(Object,Function)", function() {
 	jQuery.each( document.styleSheets, function() {
 		i++;
 	});
-	equal( i, 2, "Iteration over document.styleSheets" );
+	equal( i, document.styleSheets.length, "Iteration over document.styleSheets" );
 });
 
 test("jQuery.makeArray", function(){
@@ -1323,13 +1301,18 @@ test("jQuery.proxy", function(){
 });
 
 test("jQuery.parseHTML", function() {
-	expect( 18 );
+	expect( 23 );
 
 	var html, nodes;
 
-	equal( jQuery.parseHTML(), null, "Nothing in, null out." );
-	equal( jQuery.parseHTML( null ), null, "Null in, null out." );
-	equal( jQuery.parseHTML( "" ), null, "Empty string in, null out." );
+	deepEqual( jQuery.parseHTML(), [], "Without arguments" );
+	deepEqual( jQuery.parseHTML( undefined ), [], "Undefined" );
+	deepEqual( jQuery.parseHTML( null ), [], "Null" );
+	deepEqual( jQuery.parseHTML( false ), [], "Boolean false" );
+	deepEqual( jQuery.parseHTML( 0 ), [], "Zero" );
+	deepEqual( jQuery.parseHTML( true ), [], "Boolean true" );
+	deepEqual( jQuery.parseHTML( 42 ), [], "Positive number" );
+	deepEqual( jQuery.parseHTML( "" ), [], "Empty string" );
 	throws(function() {
 		jQuery.parseHTML( "<div></div>", document.getElementById("form") );
 	}, "Passing an element as the context raises an exception (context should be a document)");
@@ -1361,6 +1344,22 @@ test("jQuery.parseHTML", function() {
 		"parentNode should be documentFragment for wrapMap (variable in manipulation module) elements too" );
 	ok( jQuery.parseHTML("<#if><tr><p>This is a test.</p></tr><#/if>") || true, "Garbage input should not cause error" );
 });
+
+if ( jQuery.support.createHTMLDocument ) {
+	asyncTest("jQuery.parseHTML", function() {
+		expect ( 1 );
+
+		Globals.register("parseHTMLError");
+
+		jQuery.globalEval("parseHTMLError = false;");
+		jQuery.parseHTML( "<img src=x onerror='parseHTMLError = true'>" );
+
+		window.setTimeout(function() {
+			start();
+			equal( window.parseHTMLError, false, "onerror eventhandler has not been called." );
+		}, 2000);
+	});
+}
 
 test("jQuery.parseJSON", function() {
 	expect( 20 );

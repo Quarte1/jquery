@@ -1,6 +1,6 @@
 define([
 	"./core",
-	"./var/strundefined",
+	"./var/document",
 	"./var/rnotwhite",
 	"./var/hasOwn",
 	"./var/slice",
@@ -10,13 +10,13 @@ define([
 	"./core/init",
 	"./data/accepts",
 	"./selector"
-], function( jQuery, strundefined, rnotwhite, hasOwn, slice, support, dataPriv ) {
+], function( jQuery, document, rnotwhite, hasOwn, slice, support, dataPriv ) {
 
 var
 	rkeyEvent = /^key/,
-	rmouseEvent = /^(?:mouse|pointer|contextmenu)|click/,
+	rmouseEvent = /^(?:mouse|pointer|contextmenu|drag|drop)|click/,
 	rfocusMorph = /^(?:focusinfocus|focusoutblur)$/,
-	rtypenamespace = /^([^.]*)(?:\.(.+)|)$/;
+	rtypenamespace = /^([^.]*)(?:\.(.+)|)/;
 
 function returnTrue() {
 	return true;
@@ -72,7 +72,7 @@ jQuery.event = {
 			eventHandle = elemData.handle = function( e ) {
 				// Discard the second event of a jQuery.event.trigger() and
 				// when an event is called after a page has unloaded
-				return typeof jQuery !== strundefined && jQuery.event.triggered !== e.type ?
+				return typeof jQuery !== "undefined" && jQuery.event.triggered !== e.type ?
 					jQuery.event.dispatch.apply( elem, arguments ) : undefined;
 			};
 		}
@@ -216,8 +216,12 @@ jQuery.event = {
 
 		// Remove the expando if it's no longer used
 		if ( jQuery.isEmptyObject( events ) ) {
+			// Normally this should go through the data api
+			// but since event.js owns these properties,
+			// this exception is made for the sake of optimizing
+			// the operation.
 			delete elemData.handle;
-			dataPriv.remove( elem, "events" );
+			delete elemData.events;
 		}
 	},
 
@@ -240,7 +244,7 @@ jQuery.event = {
 			return;
 		}
 
-		if ( type.indexOf(".") >= 0 ) {
+		if ( type.indexOf(".") > -1 ) {
 			// Namespaced trigger; create a regexp to match event type in handle()
 			namespaces = type.split(".");
 			type = namespaces.shift();
@@ -438,7 +442,7 @@ jQuery.event = {
 
 						if ( matches[ sel ] === undefined ) {
 							matches[ sel ] = handleObj.needsContext ?
-								jQuery( sel, this ).index( cur ) >= 0 :
+								jQuery( sel, this ).index( cur ) > -1 :
 								jQuery.find( sel, this, null, [ cur ] ).length;
 						}
 						if ( matches[ sel ] ) {
@@ -461,7 +465,7 @@ jQuery.event = {
 	},
 
 	// Includes some event props shared by KeyEvent and MouseEvent
-	props: ( "altKey bubbles cancelable ctrlKey currentTarget eventPhase " +
+	props: ( "altKey bubbles cancelable ctrlKey currentTarget detail eventPhase " +
 		"metaKey relatedTarget shiftKey target timeStamp view which" ).split(" "),
 
 	fixHooks: {},
@@ -537,13 +541,7 @@ jQuery.event = {
 			event[ prop ] = originalEvent[ prop ];
 		}
 
-		// Support: Cordova 2.5 (WebKit) (#13255)
-		// All events should have a target; Cordova deviceready doesn't
-		if ( !event.target ) {
-			event.target = document;
-		}
-
-		// Support: Safari 6.0+, Chrome<28
+		// Support: Safari 6.0+
 		// Target should not be a text node (#504, #13143)
 		if ( event.target.nodeType === 3 ) {
 			event.target = event.target.parentNode;
@@ -673,6 +671,7 @@ jQuery.Event = function( src, props ) {
 // jQuery.Event is based on DOM3 Events as specified by the ECMAScript Language Binding
 // http://www.w3.org/TR/2003/WD-DOM-Level-3-Events-20030331/ecma-script-binding.html
 jQuery.Event.prototype = {
+	constructor: jQuery.Event,
 	isDefaultPrevented: returnFalse,
 	isPropagationStopped: returnFalse,
 	isImmediatePropagationStopped: returnFalse,
@@ -709,7 +708,16 @@ jQuery.Event.prototype = {
 };
 
 // Create mouseenter/leave events using mouseover/out and event-time checks
-// Support: Chrome 15+
+// so that event delegation works in jQuery.
+// Do the same for pointerenter/pointerleave and pointerover/pointerout
+//
+// Support: Safari<7.0
+// Safari doesn't support mouseenter/mouseleave at all.
+//
+// Support: Chrome 34+
+// Mouseenter doesn't perform while left mouse button is pressed
+// (and initiated outside the observed element)
+// https://code.google.com/p/chromium/issues/detail?id=333868
 jQuery.each({
 	mouseenter: "mouseover",
 	mouseleave: "mouseout",
